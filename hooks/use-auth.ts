@@ -18,6 +18,7 @@ export function useAuth() {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isNewUser, setIsNewUser] = useState(false)
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -25,18 +26,45 @@ export function useAuth() {
 
       if (firebaseUser) {
         try {
-          // Si userData existe déjà (défini lors de l'inscription), ne pas le récupérer à nouveau
-          if (!userData || userData.id !== firebaseUser.uid) {
-            // Récupérer les données utilisateur
-            const userDoc = await userService.getUser(firebaseUser.uid)
-            setUserData(userDoc)
+          // Ne pas tenter de récupérer les données si c'est un nouvel utilisateur
+          // ou si les données ont déjà été récupérées pour cet utilisateur
+          if (isNewUser) {
+            console.log("Nouvel utilisateur détecté, les données seront récupérées ultérieurement")
+            setIsNewUser(false) // Réinitialiser pour les connexions futures
+          } else if (!userData || userData.id !== firebaseUser.uid) {
+            try {
+              // Récupérer les données utilisateur
+              console.log("Tentative de récupération des données utilisateur:", firebaseUser.uid)
+              const userDoc = await userService.getUser(firebaseUser.uid)
+              console.log("Données utilisateur récupérées avec succès")
+              setUserData(userDoc)
+              
+              // Récupérer l'abonnement actif
+              try {
+                const activeSubscription = await subscriptionService.getActiveSubscription(firebaseUser.uid)
+                setSubscription(activeSubscription)
+              } catch (subErr) {
+                console.error("Erreur lors de la récupération de l'abonnement:", subErr)
+                // Ne pas bloquer le flux si l'abonnement ne peut pas être récupéré
+              }
+            } catch (userErr: any) {
+              console.error("Erreur lors de la récupération des données utilisateur:", userErr)
+              // Si l'utilisateur n'est pas trouvé, créer un profil minimal par défaut
+              if (userErr.message && userErr.message.includes("non trouvé")) {
+                console.log("Création d'un profil utilisateur par défaut")
+                // Créer un profil minimal par défaut
+                const defaultUserData = {
+                  id: firebaseUser.uid,
+                  email: firebaseUser.email || "",
+                  displayName: firebaseUser.displayName || "",
+                }
+                await userService.setUser(firebaseUser.uid, defaultUserData)
+                setUserData(defaultUserData as User)
+              }
+            }
           }
-
-          // Récupérer l'abonnement actif
-          const activeSubscription = await subscriptionService.getActiveSubscription(firebaseUser.uid)
-          setSubscription(activeSubscription)
         } catch (err) {
-          console.error("Erreur lors de la récupération des données:", err)
+          console.error("Erreur générale dans le hook d'authentification:", err)
         }
       } else {
         setUserData(null)
@@ -47,7 +75,7 @@ export function useAuth() {
     })
 
     return () => unsubscribe()
-  }, [userData])
+  }, [userData, isNewUser])
 
   const login = async (email: string, password: string) => {
     try {
@@ -63,24 +91,28 @@ export function useAuth() {
   const register = async (email: string, password: string, userData: Partial<User>) => {
     try {
       setError(null)
+      
+      // Indiquer qu'il s'agit d'un nouvel utilisateur pour que le hook ne tente pas
+      // immédiatement de récupérer des données qui n'existent pas encore
+      setIsNewUser(true)
+      
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
       const user = userCredential.user
 
-      // Créer le profil utilisateur dans Firestore
-      await userService.setUser(user.uid, {
+      // Créer le profil utilisateur dans Firestore avec tous les champs requis
+      const fullUserData = {
         id: user.uid,
         email: user.email || email,
         ...userData,
-      })
-
-      // S'assurer que les données utilisateur sont disponibles immédiatement
-      try {
-        const userDoc = await userService.getUser(user.uid)
-        setUserData(userDoc)
-      } catch (docError) {
-        console.error("Erreur lors de la récupération des données utilisateur:", docError)
-        // Ne pas faire échouer l'inscription si la récupération des données échoue
+        createdAt: new Date(),
       }
+      
+      console.log("Création du profil utilisateur dans Firestore:", user.uid)
+      await userService.setUser(user.uid, fullUserData)
+      console.log("Profil utilisateur créé avec succès")
+      
+      // Mettre à jour les données utilisateur localement pour éviter une requête supplémentaire
+      setUserData(fullUserData as User)
 
       return user
     } catch (err: any) {
@@ -102,10 +134,15 @@ export function useAuth() {
     if (!user) throw new Error("Utilisateur non connecté")
 
     try {
-      await userService.setUser(user.uid, data)
-      const updatedUserData = await userService.getUser(user.uid)
-      setUserData(updatedUserData)
-      return updatedUserData
+      // Fusionner avec les données existantes
+      const updatedData = userData ? { ...userData, ...data } : data
+      
+      await userService.setUser(user.uid, updatedData)
+      
+      // Mettre à jour les données localement pour éviter une requête supplémentaire
+      setUserData(prevData => prevData ? { ...prevData, ...data } : data as User)
+      
+      return updatedData
     } catch (err: any) {
       setError(err.message)
       throw err

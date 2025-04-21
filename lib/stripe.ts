@@ -24,11 +24,13 @@ export const createStripeCheckoutSession = async ({
   priceId,
   successUrl,
   cancelUrl,
+  metadata,
 }: {
   customerId: string;
   priceId: string;
   successUrl: string;
   cancelUrl: string;
+  metadata?: Record<string, string>;
 }) => {
   if (!isServer || !stripe) {
     throw new Error("Cette fonction ne peut être utilisée que côté serveur");
@@ -46,6 +48,7 @@ export const createStripeCheckoutSession = async ({
     mode: "subscription",
     success_url: successUrl,
     cancel_url: cancelUrl,
+    metadata: metadata,
   });
 };
 
