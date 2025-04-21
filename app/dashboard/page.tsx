@@ -40,67 +40,67 @@ import { clientService } from "@/components/clients/client.schema"
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const [period, setPeriod] = useState("month")
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalProfit: 0,
-    marginRate: 0,
-    pendingInvoices: 0,
-    revenueChange: 0,
-    profitChange: 0,
-    marginChange: 0,
-    pendingChange: 0,
+    totalRevenue: 1030200,
+    totalProfit: 739203,
+    marginRate: 61.5,
+    pendingInvoices: 39201,
+    revenueChange: 12.5,
+    profitChange: 8.2,
+    marginChange: 1.8,
+    pendingChange: -3.2,
   })
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      if (!user) return
+  // useEffect(() => {
+  //   async function fetchDashboardData() {
+  //     if (!user) return
 
-      setLoading(true)
-      setError(null)
+  //     setLoading(true)
+  //     setError(null)
 
-      try {
-        // Récupérer les factures
-        const invoices = await invoiceService.getInvoices(user.uid)
+  //     try {
+  //       // Récupérer les factures
+  //       const invoices = await invoiceService.getInvoices(user.uid)
 
-        // Récupérer les véhicules
-        const vehicles = await vehiculeService.getVehicules(user.uid)
+  //       // Récupérer les véhicules
+  //       const vehicles = await vehiculeService.getVehicules(user.uid)
 
-        // Récupérer les clients
-        const clients = await clientService.getClients(user.uid)
+  //       // Récupérer les clients
+  //       const clients = await clientService.getClients(user.uid)
 
-        // Calculer les statistiques
-        const totalRevenue = invoices.reduce((sum, invoice) => sum + invoice.totalTTC, 0)
-        const totalProfit = invoices.reduce((sum, invoice) => sum + (invoice.totalHT - (invoice.montantPaye || 0)), 0)
-        const marginRate = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
-        const pendingInvoices = invoices
-          .filter((invoice) => invoice.statut === "envoyée" || invoice.statut === "partiellement_payée")
-          .reduce((sum, invoice) => sum + invoice.totalTTC, 0)
+  //       // Calculer les statistiques
+  //       const totalRevenue = invoices.reduce((sum, invoice) => sum + invoice.totalTTC, 0)
+  //       const totalProfit = invoices.reduce((sum, invoice) => sum + (invoice.totalHT - (invoice.montantPaye || 0)), 0)
+  //       const marginRate = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
+  //       const pendingInvoices = invoices
+  //         .filter((invoice) => invoice.statut === "envoyée" || invoice.statut === "partiellement_payée")
+  //         .reduce((sum, invoice) => sum + invoice.totalTTC, 0)
 
-        // Mettre à jour les statistiques
-        setStats({
-          totalRevenue,
-          totalProfit,
-          marginRate,
-          pendingInvoices,
-          revenueChange: 12.5, // Valeurs fictives pour l'exemple
-          profitChange: 8.2,
-          marginChange: 1.8,
-          pendingChange: -3.2,
-        })
-      } catch (err) {
-        console.error("Erreur lors de la récupération des données du tableau de bord:", err)
-        setError("Une erreur est survenue lors du chargement des données. Veuillez réessayer.")
-      } finally {
-        setLoading(false)
-      }
-    }
+  //       // Mettre à jour les statistiques
+  //       setStats({
+  //         totalRevenue,
+  //         totalProfit,
+  //         marginRate,
+  //         pendingInvoices,
+  //         revenueChange: 12.5, // Valeurs fictives pour l'exemple
+  //         profitChange: 8.2,
+  //         marginChange: 1.8,
+  //         pendingChange: -3.2,
+  //       })
+  //     } catch (err) {
+  //       console.error("Erreur lors de la récupération des données du tableau de bord:", err)
+  //       setError("Une erreur est survenue lors du chargement des données. Veuillez réessayer.")
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
 
-    if (!authLoading && user) {
-      fetchDashboardData()
-    }
-  }, [user, authLoading, period])
+  //   if (!authLoading && user) {
+  //     fetchDashboardData()
+  //   }
+  // }, [user, authLoading, period])
 
   if (authLoading) {
     return (
@@ -170,17 +170,17 @@ export default function DashboardPage() {
 
   const STATUS_COLORS = {
     Payées: "#10b981",
-    "En attente": "#f59e0b",
-    "En retard": "#ef4444",
-    Annulées: "#6b7280",
+    "En attente": "#FD6502",
+    "En retard": "#232323",
+    Annulées: "#161616",
   }
 
   const VEHICLE_COLORS = {
-    Berline: "#3b82f6",
-    SUV: "#8b5cf6",
-    Citadine: "#ec4899",
-    Utilitaire: "#f97316",
-    Autre: "#6b7280",
+    Berline: "#FD6502",
+    SUV: "#FD6502",
+    Citadine: "#FD6502",
+    Utilitaire: "#FD6502",
+    Autre: "#232323",
   }
 
   const recentTransactions = [
@@ -347,8 +347,8 @@ export default function DashboardPage() {
                       <YAxis />
                       <Tooltip content={<ChartTooltip />} />
                       <Legend />
-                      <Bar dataKey="ventes" name="Ventes" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="benefices" name="Bénéfices" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ventes" name="Ventes" fill="#FD6502" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="benefices" name="Bénéfices" fill="#232323" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartContainer>
@@ -404,8 +404,8 @@ export default function DashboardPage() {
                         dataKey="nouveaux"
                         name="Nouveaux clients"
                         stackId="1"
-                        stroke="#f59e0b"
-                        fill="#f59e0b"
+                        stroke="#FD6502"
+                        fill="#FD6502"
                         fillOpacity={0.6}
                       />
                       <Area
@@ -413,8 +413,8 @@ export default function DashboardPage() {
                         dataKey="recurrents"
                         name="Clients récurrents"
                         stackId="1"
-                        stroke="#8b5cf6"
-                        fill="#8b5cf6"
+                        stroke="#232323"
+                        fill="#232323"
                         fillOpacity={0.6}
                       />
                     </AreaChart>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
                         type="monotone"
                         dataKey="ventes"
                         name="Ventes totales"
-                        stroke="#3b82f6"
+                        stroke="#FD6502"
                         strokeWidth={2}
                         dot={{ r: 4 }}
                         activeDot={{ r: 6 }}
@@ -530,7 +530,7 @@ export default function DashboardPage() {
                         type="monotone"
                         dataKey="acomptes"
                         name="Acomptes"
-                        stroke="#ec4899"
+                        stroke="#232323"
                         strokeWidth={2}
                         dot={{ r: 4 }}
                         activeDot={{ r: 6 }}

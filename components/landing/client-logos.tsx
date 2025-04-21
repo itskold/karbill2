@@ -3,16 +3,13 @@ import Image from "next/image"
 export function ClientLogos() {
   // Remplacez ces URLs par les logos réels de vos clients
   const logos = [
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
-    "/placeholder.svg?height=60&width=180",
+    "/stell-logo-blue.svg",
+    "/geely.svg?color=#232323",
+    "/byd.svg",
+    "/autohero.svg",
+    "/vanmossel.svg",
+    "/autosphere.svg",
+    "/am.svg",
   ]
 
   return (
@@ -28,9 +25,9 @@ export function ClientLogos() {
                 <Image
                   src={logo || "/placeholder.svg"}
                   alt={`Client logo ${index + 1}`}
-                  width={180}
-                  height={60}
-                  className="client-logo h-12 w-auto object-contain"
+                  width={100}
+                  height={100}
+                  className="client-logo h-12 object-contain "
                 />
               </div>
             ))}
@@ -41,9 +38,9 @@ export function ClientLogos() {
                 <Image
                   src={logo || "/placeholder.svg"}
                   alt={`Client logo ${index + 1}`}
-                  width={180}
-                  height={60}
-                  className="client-logo h-12 w-auto object-contain"
+                  width={100}
+                  height={100}
+                  className="client-logo h-12 object-contain "
                 />
               </div>
             ))}

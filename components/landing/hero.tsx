@@ -113,7 +113,7 @@ export function Hero() {
           <div className="relative rounded-xl overflow-hidden shadow-2xl border border-gray-200">
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent z-10 pointer-events-none"></div>
             <Image
-              src="/placeholder.svg?height=600&width=1200"
+              src="/hero.png"
               alt="Interface Karbill"
               width={1200}
               height={600}
