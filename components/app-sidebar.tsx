@@ -3,13 +3,13 @@
 import type * as React from "react";
 import { useEffect, useState } from "react";
 import {
-  Command,
   LifeBuoy,
   Send,
   FileText,
   Car,
   ClipboardList,
   Users,
+  ChartColumnIcon,
 } from "lucide-react";
 
 import { NavMain } from "./nav-main";
@@ -36,7 +36,7 @@ const navMainData = [
   {
     title: "Dashboard",
     url: "/dashboard",
-    icon: FileText,
+    icon: ChartColumnIcon,
   },
   {
     title: "Facturation",
@@ -45,7 +45,7 @@ const navMainData = [
     isActive: true,
     items: [
       {
-        title: "+ Facture de vente",
+        title: "Créer une facture",
         url: "/dashboard/factures/add",
       },
       {
@@ -69,7 +69,7 @@ const navMainData = [
     isActive: true,
     items: [
       {
-        title: "+ Véhicule",
+        title: "Ajouter un véhicule",
         url: "/dashboard/vehicules/add",
       },
     ],
@@ -81,11 +81,11 @@ const navMainData = [
     isActive: true,
     items: [
       {
-        title: "+ Réparations",
+        title: "Ajouter une réparation",
         url: "/dashboard/ordres/add",
       },
       {
-        title: "+ Employé",
+        title: "Ajouter un employé",
         url: "/dashboard/ordres/add/employe",
       },
     ],
@@ -97,7 +97,7 @@ const navMainData = [
     isActive: true,
     items: [
       {
-        title: "+ Client",
+        title: "Ajouter un client",
         url: "/dashboard/clients/add",
       },
     ],
