@@ -128,6 +128,16 @@ export function useAuth() {
       await userService.setUser(user.uid, fullUserData)
       console.log("Profil utilisateur créé avec succès")
       
+      // Créer automatiquement un abonnement gratuit pour l'utilisateur
+      try {
+        console.log("Création de l'abonnement gratuit pour l'utilisateur:", user.uid)
+        await subscriptionService.createFreeSubscription(user.uid)
+        console.log("Abonnement gratuit créé avec succès")
+      } catch (subErr) {
+        console.error("Erreur lors de la création de l'abonnement gratuit:", subErr)
+        // Ne pas bloquer l'inscription si la création de l'abonnement échoue
+      }
+      
       // Mettre à jour les données utilisateur localement pour éviter une requête supplémentaire
       setUserData(fullUserData as User)
       

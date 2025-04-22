@@ -136,10 +136,22 @@ export default function AbonnementPage() {
 
   // Gérer l'abonnement via le portail Stripe
   const handleManageSubscription = async () => {
-    if (!user || !subscription?.stripeCustomerId) {
+    if (!user) {
       toast({
         title: "Erreur",
-        description: "Impossible de gérer l'abonnement",
+        description: "Vous devez être connecté pour gérer votre abonnement",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Vérifier si l'utilisateur a un ID client Stripe via l'abonnement
+    const hasStripeCustomerId = subscription?.stripeCustomerId;
+
+    if (!hasStripeCustomerId) {
+      toast({
+        title: "Erreur",
+        description: "Aucun compte client Stripe trouvé. Veuillez contacter le support.",
         variant: "destructive",
       });
       return;
@@ -160,14 +172,17 @@ export default function AbonnementPage() {
         }),
       });
 
-      const data = await response.json();
-
-      if (data.error) {
-        throw new Error(data.error);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erreur de création du portail Stripe");
       }
+
+      const data = await response.json();
 
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        throw new Error("Aucune URL de portail n'a été retournée");
       }
     } catch (error: any) {
       console.error("Erreur de création du portail Stripe:", error);

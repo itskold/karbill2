@@ -132,20 +132,56 @@ export const subscriptionService = {
       })
     }
   },
+  
+  // Mettre à jour un abonnement existant
+  async updateSubscription(
+    userId: string,
+    subscriptionId: string,
+    subscriptionData: Partial<Subscription>,
+  ): Promise<void> {
+    return this.setSubscription(userId, subscriptionId, subscriptionData)
+  },
 
   // Créer un abonnement gratuit pour un nouvel utilisateur
   async createFreeSubscription(userId: string): Promise<string> {
-    const subscriptionId = doc(collection(db, "_")).id // Générer un ID unique
+    const subscriptionsRef = this.getSubscriptionsRef(userId);
+    
+    // Vérifier si un abonnement actif existe déjà
+    const activeQuery = query(subscriptionsRef, where("status", "==", "active"));
+    const activeSnapshot = await getDocs(activeQuery);
+    
+    // Si un abonnement actif existe déjà, le retourner
+    if (!activeSnapshot.empty) {
+      const existingDoc = activeSnapshot.docs[0];
+      const existingData = existingDoc.data();
+      
+      // Si c'est déjà un abonnement gratuit, on le retourne simplement
+      if (existingData.planType === "free") {
+        console.log(`Abonnement gratuit existant trouvé pour l'utilisateur: ${userId}`);
+        return existingDoc.id;
+      }
+      
+      // Sinon, on crée un nouvel abonnement gratuit (cas rare)
+      console.log(`Abonnement actif existant trouvé pour l'utilisateur: ${userId}, mais pas gratuit. Création d'un nouveau.`);
+    }
+    
+    // Créer une référence à un nouveau document avec un ID auto-généré
+    const newSubscriptionRef = doc(subscriptionsRef);
+    const subscriptionId = newSubscriptionRef.id;
 
-    await this.setSubscription(userId, subscriptionId, {
+    console.log(`Création d'un nouvel abonnement gratuit pour l'utilisateur: ${userId}`);
+    await setDoc(newSubscriptionRef, {
       id: subscriptionId,
       userId,
       planType: "free",
       status: "active",
       cancelAtPeriodEnd: false,
-    })
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    console.log(`Abonnement gratuit créé avec succès: ${subscriptionId}`);
 
-    return subscriptionId
+    return subscriptionId;
   },
 
   // Vérifier si l'utilisateur a atteint les limites de son plan
