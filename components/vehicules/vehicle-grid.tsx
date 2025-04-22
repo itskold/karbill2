@@ -168,7 +168,7 @@ export function VehicleGrid({ vehicles, onVehicleDeleted }: VehicleGridProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href={`/dashboard/vehicules/${vehicle.id}/modifier`}>
+                    <Link href={`/dashboard/vehicules/${vehicle.id}/edit`}>
                       <Edit className="mr-2 h-4 w-4" /> Modifier
                     </Link>
                   </DropdownMenuItem>

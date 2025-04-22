@@ -93,7 +93,7 @@ export function StatsCards({
               </p>
               <div className="flex items-baseline">
                 <p className="text-2xl font-semibold text-slate-900 mr-2">
-                  {totalInventoryValue}
+                  {totalInventoryValue.toLocaleString("fr-FR")}
                 </p>
                 <p className="text-xs text-slate-500">EUR</p>
               </div>

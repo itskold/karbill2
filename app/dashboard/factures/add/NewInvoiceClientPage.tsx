@@ -2,8 +2,12 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ArrowLeft, Save, Shield, CheckCircle2, Plus, Truck, Car, MoreHorizontal } from "lucide-react"
+import { ArrowLeft, Save, Shield, CheckCircle2, Plus, Truck, Car, MoreHorizontal, User, Building2, MapPin } from "lucide-react"
 import { useSearchParams } from "next/navigation"
+import { z } from "zod"
+import { useForm, type Resolver } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "@/components/ui/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,6 +28,16 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/hooks/use-auth"
 import { vehiculeService, type Vehicule } from "@/components/vehicules/vehicule.schema"
+import { clientService, type Client } from "@/components/clients/client.schema"
+import { 
+  Form, 
+  FormControl, 
+  FormField, 
+  FormItem, 
+  FormLabel, 
+  FormMessage
+} from "@/components/ui/form"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 // Type pour la garantie
 type Guarantee = {
@@ -59,6 +73,35 @@ type TradeInVehicle = {
   condition: string
 }
 
+// Schéma de validation pour le formulaire de client
+const clientFormSchema = z.object({
+  clientType: z.enum(["particulier", "professionnel"]),
+  firstName: z.string().min(1, "Le prénom est requis").optional().or(z.literal("")),
+  lastName: z.string().min(1, "Le nom est requis").optional().or(z.literal("")),
+  companyName: z.string().min(1, "Le nom de l'entreprise est requis").optional().or(z.literal("")),
+  email: z.string().email("Email invalide").min(1, "L'email est requis"),
+  phone: z.string().optional().or(z.literal("")),
+  address: z.string().min(1, "L'adresse est requise"),
+  postalCode: z.string().min(1, "Le code postal est requis"),
+  city: z.string().min(1, "La ville est requise"),
+  country: z.string().default("Belgique"),
+}).refine(
+  (data) => {
+    if (data.clientType === "particulier") {
+      return !!data.firstName && !!data.lastName;
+    } else if (data.clientType === "professionnel") {
+      return !!data.companyName;
+    }
+    return false;
+  },
+  {
+    message: "Veuillez remplir les champs obligatoires selon le type de client",
+    path: ["clientType"],
+  }
+);
+
+type ClientFormValues = z.infer<typeof clientFormSchema>;
+
 export default function NewInvoiceClientPage() {
   // État pour les véhicules
   const [vehicles, setVehicles] = useState<Vehicule[]>([])
@@ -76,6 +119,13 @@ export default function NewInvoiceClientPage() {
     condition: "good",
   })
   const [activeTab, setActiveTab] = useState("general")
+  
+  // État pour les clients
+  const [clients, setClients] = useState<Client[]>([])
+  const [isLoadingClients, setIsLoadingClients] = useState(true)
+  const [selectedClient, setSelectedClient] = useState<string>("")
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false)
+  const [isCreatingClient, setIsCreatingClient] = useState(false)
 
   // Récupération des paramètres d'URL
   const searchParams = useSearchParams()
@@ -83,6 +133,90 @@ export default function NewInvoiceClientPage() {
 
   // Utilisation du hook d'authentification
   const { user, userData } = useAuth()
+
+  // Formulaire pour nouveau client
+  const clientForm = useForm<ClientFormValues>({
+    resolver: zodResolver(clientFormSchema) as Resolver<ClientFormValues>,
+    defaultValues: {
+      clientType: "particulier",
+      firstName: "",
+      lastName: "",
+      companyName: "",
+      email: "",
+      phone: "",
+      address: "",
+      postalCode: "",
+      city: "",
+      country: "Belgique",
+    },
+  });
+
+  const clientType = clientForm.watch("clientType");
+
+  // Restaurer le handleSubmit et utiliser correctement le type
+  const onCreateClient = clientForm.handleSubmit(async (values) => {
+    if (!user?.uid) {
+      toast({
+        title: "Erreur",
+        description: "Vous devez être connecté pour créer un client",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingClient(true);
+
+    try {
+      // Préparer les données du client selon le schéma attendu par Firebase
+      const clientData: Omit<Client, "id" | "userId" | "createdAt" | "updatedAt"> = {
+        nom: values.clientType === "particulier" ? values.lastName || "" : "",
+        prenom: values.clientType === "particulier" ? values.firstName || "" : "",
+        email: values.email,
+        telephone: values.phone || "",
+        adresse: values.address,
+        codePostal: values.postalCode,
+        ville: values.city,
+        pays: values.country,
+        entreprise: values.clientType === "professionnel" ? values.companyName || "" : "",
+        siret: "",
+        tva: "",
+        notes: "",
+        type: values.clientType,
+      };
+
+      // Créer le client dans Firebase
+      const clientId = await clientService.createClient(user.uid, clientData);
+      
+      // Récupérer le client nouvellement créé
+      const newClient = await clientService.getClient(user.uid, clientId);
+      
+      if (newClient) {
+        // Ajouter le client à la liste
+        setClients([...clients, newClient]);
+        
+        // Sélectionner le nouveau client
+        setSelectedClient(clientId);
+        
+        toast({
+          title: "Client créé",
+          description: "Le client a été créé avec succès",
+        });
+        
+        // Fermer la modal et réinitialiser le formulaire
+        setIsNewClientModalOpen(false);
+        clientForm.reset();
+      }
+    } catch (error) {
+      console.error("Erreur lors de la création du client:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur est survenue lors de la création du client",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingClient(false);
+    }
+  });
 
   // Effet pour charger les véhicules
   useEffect(() => {
@@ -101,6 +235,25 @@ export default function NewInvoiceClientPage() {
     }
 
     loadVehicles()
+  }, [user?.uid])
+
+  // Effet pour charger les clients
+  useEffect(() => {
+    async function loadClients() {
+      if (user?.uid) {
+        try {
+          setIsLoadingClients(true)
+          const userClients = await clientService.getClients(user.uid)
+          setClients(userClients)
+        } catch (error) {
+          console.error("Erreur lors du chargement des clients:", error)
+        } finally {
+          setIsLoadingClients(false)
+        }
+      }
+    }
+
+    loadClients()
   }, [user?.uid])
 
   // Effet pour ajouter automatiquement le véhicule spécifié dans l'URL
@@ -300,16 +453,38 @@ export default function NewInvoiceClientPage() {
                       <CardContent className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="client">Client</Label>
-                          <Select>
-                            <SelectTrigger id="client">
-                              <SelectValue placeholder="Sélectionner un client" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="client1">Dupont Automobiles</SelectItem>
-                              <SelectItem value="client2">Garage Martin</SelectItem>
-                              <SelectItem value="client3">Auto Express</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                              <Select value={selectedClient} onValueChange={setSelectedClient}>
+                                <SelectTrigger id="client">
+                                  <SelectValue placeholder="Sélectionner un client" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {isLoadingClients ? (
+                                    <SelectItem value="loading" disabled>Chargement des clients...</SelectItem>
+                                  ) : clients.length > 0 ? (
+                                    clients.map((client) => (
+                                      <SelectItem key={client.id} value={client.id}>
+                                        {client.entreprise 
+                                          ? client.entreprise 
+                                          : `${client.nom} ${client.prenom}`}
+                                      </SelectItem>
+                                    ))
+                                  ) : (
+                                    <SelectItem value="no-clients" disabled>Aucun client pour le moment</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button 
+                              type="button" 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => setIsNewClientModalOpen(true)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1138,6 +1313,222 @@ export default function NewInvoiceClientPage() {
               Annuler
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal pour créer un nouveau client */}
+      <Dialog open={isNewClientModalOpen} onOpenChange={setIsNewClientModalOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nouveau client</DialogTitle>
+            <DialogDescription>
+              Créez un nouveau client pour l'ajouter à votre facture.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...clientForm}>
+            <form onSubmit={onCreateClient} className="space-y-4">
+              {/* Type de client */}
+              <FormField
+                control={clientForm.control}
+                name="clientType"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Type de client</FormLabel>
+                    <FormControl>
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        className="flex flex-col space-y-1"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="particulier" id="new-particulier" />
+                          <Label htmlFor="new-particulier" className="flex items-center gap-2">
+                            <User className="h-4 w-4" /> Particulier
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="professionnel" id="new-professionnel" />
+                          <Label htmlFor="new-professionnel" className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4" /> Entreprise
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <Separator />
+
+              {/* Informations selon le type */}
+              {clientType === "particulier" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={clientForm.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Prénom*</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Jean" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={clientForm.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nom*</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Dupont" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              ) : (
+                <FormField
+                  control={clientForm.control}
+                  name="companyName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nom de l'entreprise*</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Acme Inc" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
+              {/* Coordonnées */}
+              <Separator />
+              <h3 className="text-sm font-medium">Coordonnées</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={clientForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email*</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="exemple@email.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={clientForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Téléphone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+32 470 12 34 56" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Adresse */}
+              <Separator />
+              <h3 className="text-sm font-medium">Adresse</h3>
+              
+              <FormField
+                control={clientForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rue et numéro*</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Rue de la Loi 16" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={clientForm.control}
+                  name="postalCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Code postal*</FormLabel>
+                      <FormControl>
+                        <Input placeholder="1000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="md:col-span-2">
+                  <FormField
+                    control={clientForm.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ville*</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Bruxelles" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <FormField
+                control={clientForm.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pays*</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner un pays" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Belgique">Belgique</SelectItem>
+                        <SelectItem value="France">France</SelectItem>
+                        <SelectItem value="Luxembourg">Luxembourg</SelectItem>
+                        <SelectItem value="Pays-Bas">Pays-Bas</SelectItem>
+                        <SelectItem value="Allemagne">Allemagne</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsNewClientModalOpen(false)}
+                >
+                  Annuler
+                </Button>
+                <Button type="submit" disabled={isCreatingClient}>
+                  {isCreatingClient ? "Création..." : "Créer le client"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
         </DialogContent>
       </Dialog>
     </div>

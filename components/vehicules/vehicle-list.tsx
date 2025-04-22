@@ -149,7 +149,7 @@ export function VehicleList({ vehicles, onVehicleDeleted }: VehicleListProps) {
                       className="text-slate-700 h-8 w-8"
                     >
                       <Link
-                        href={`/dashboard/vehicules/${vehicle.id}/modifier`}
+                        href={`/dashboard/vehicules/${vehicle.id}/edit`}
                       >
                         <Edit className="h-4 w-4" />
                       </Link>
