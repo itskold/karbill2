@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, Save, Shield, CheckCircle2, Plus, Truck, Car, MoreHorizontal } from "lucide-react"
 
@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/hooks/use-auth"
+import { vehiculeService, type Vehicule } from "@/components/vehicules/vehicule.schema"
 
 // Type pour la garantie
 type Guarantee = {
@@ -56,16 +58,33 @@ type TradeInVehicle = {
   condition: string
 }
 
-// Données mockées pour les véhicules
-const mockVehicles = [
-  { id: "v1", make: "Peugeot", model: "308", year: 2022, price: 25000, vin: "VF3LBHZTXLS123456" },
-  { id: "v2", make: "Renault", model: "Clio", year: 2021, price: 18500, vin: "VF15RPNJ5MT789012" },
-  { id: "v3", make: "Citroën", model: "C3", year: 2023, price: 19800, vin: "VF7SXHMZ3LT345678" },
-  { id: "v4", make: "Volkswagen", model: "Golf", year: 2022, price: 28500, vin: "WVWZZZAUZNW901234" },
-  { id: "v5", make: "BMW", model: "Série 3", year: 2021, price: 42000, vin: "WBA5E51070G567890" },
-]
-
 export default function NewInvoiceClientPage() {
+  // État pour les véhicules
+  const [vehicles, setVehicles] = useState<Vehicule[]>([])
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
+
+  // Utilisation du hook d'authentification
+  const { user, userData } = useAuth()
+
+  // Effet pour charger les véhicules
+  useEffect(() => {
+    async function loadVehicles() {
+      if (user?.uid) {
+        try {
+          setIsLoadingVehicles(true)
+          const availableVehicles = await vehiculeService.getAvailableVehicules(user.uid)
+          setVehicles(availableVehicles)
+        } catch (error) {
+          console.error("Erreur lors du chargement des véhicules:", error)
+        } finally {
+          setIsLoadingVehicles(false)
+        }
+      }
+    }
+
+    loadVehicles()
+  }, [user?.uid])
+
   const [isSelectGuaranteeOpen, setIsSelectGuaranteeOpen] = useState(false)
   const [selectedGuarantee, setSelectedGuarantee] = useState<Guarantee | null>(null)
   const [items, setItems] = useState<InvoiceItem[]>([])
@@ -404,12 +423,12 @@ export default function NewInvoiceClientPage() {
                                         <Select
                                           value={item.vehicleId}
                                           onValueChange={(value) => {
-                                            const vehicle = mockVehicles.find((v) => v.id === value)
+                                            const vehicle = vehicles.find((v) => v.id === value)
                                             if (vehicle) {
                                               updateItem(item.id, {
                                                 vehicleId: value,
-                                                description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`,
-                                                unitPrice: vehicle.price,
+                                                description: `${vehicle.brand} ${vehicle.model} (${vehicle.year})`,
+                                                unitPrice: vehicle.priceSale || 0,
                                               })
                                             }
                                           }}
@@ -418,9 +437,9 @@ export default function NewInvoiceClientPage() {
                                             <SelectValue placeholder="Sélectionner un véhicule" />
                                           </SelectTrigger>
                                           <SelectContent>
-                                            {mockVehicles.map((vehicle) => (
+                                            {vehicles.map((vehicle) => (
                                               <SelectItem key={vehicle.id} value={vehicle.id}>
-                                                {vehicle.make} {vehicle.model} ({vehicle.year})
+                                                {vehicle.brand} {vehicle.model} ({vehicle.year})
                                               </SelectItem>
                                             ))}
                                           </SelectContent>
