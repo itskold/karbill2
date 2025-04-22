@@ -94,7 +94,7 @@ export default function ConfigurePage() {
     setIsLoading(true)
 
     try {
-      let logoUrl: string | undefined = undefined
+      let logoUrl: string | null = null
 
       // Si un logo a été chargé, l'uploader vers Firebase Storage
       if (logoPreview && user) {
@@ -110,7 +110,7 @@ export default function ConfigurePage() {
         vatNumber,
         phone,
         currency,
-        logo: logoUrl,
+        logo: logoUrl || "",
         address: {
           street,
           postalCode,
