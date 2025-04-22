@@ -8,6 +8,7 @@ import { z } from "zod"
 import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "@/components/ui/use-toast"
+import { format, addDays } from "date-fns"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -57,7 +58,8 @@ type InvoiceItem = {
   type: ItemType
   description: string
   quantity: number
-  unitPrice: number
+  unitPrice: number   // Prix HT
+  unitPriceTTC: number // Prix TTC
   vat: number
   discount: number
   vehicleId?: string
@@ -126,6 +128,14 @@ export default function NewInvoiceClientPage() {
   const [selectedClient, setSelectedClient] = useState<string>("")
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false)
   const [isCreatingClient, setIsCreatingClient] = useState(false)
+  
+  // État pour les dates de facture
+  const today = new Date()
+  const [issueDate, setIssueDate] = useState<Date>(today)
+  const [dueDate, setDueDate] = useState<Date>(addDays(today, 7))
+  
+  // État pour le numéro de facture
+  const [invoiceNumber, setInvoiceNumber] = useState<string>("")
 
   // Récupération des paramètres d'URL
   const searchParams = useSearchParams()
@@ -262,14 +272,22 @@ export default function NewInvoiceClientPage() {
       const vehicleToAdd = vehicles.find(v => v.id === vehicleIdFromUrl)
       
       if (vehicleToAdd) {
+        // Par défaut, utiliser la TVA à 21%
+        const vatRate = 21;
+        // Le prix dans la base de données est TTC
+        const priceTTC = vehicleToAdd.priceSale || 0;
+        // Calculer le prix HT
+        const priceHT = Math.round((priceTTC / (1 + vatRate / 100)) * 100) / 100;
+        
         // Ajouter ce véhicule comme article
         const newItem: InvoiceItem = {
           id: `item-${Date.now()}`,
           type: "vehicle",
           description: `${vehicleToAdd.brand} ${vehicleToAdd.model} (${vehicleToAdd.year})`,
           quantity: 1,
-          unitPrice: vehicleToAdd.priceSale || 0,
-          vat: 21,
+          unitPrice: priceHT,
+          unitPriceTTC: priceTTC,
+          vat: vatRate,
           discount: 0,
           vehicleId: vehicleToAdd.id
         }
@@ -281,6 +299,17 @@ export default function NewInvoiceClientPage() {
       }
     }
   }, [vehicleIdFromUrl, vehicles, items])
+
+  // Effet pour générer le numéro de facture basé sur les paramètres de l'utilisateur
+  useEffect(() => {
+    if (userData) {
+      const settings = userData.invoiceSettings || { prefix: "FAC-", startNumber: 1, nextNumber: 1 }
+      const nextNum = settings.nextNumber || (settings.startNumber + 1)
+      const formattedNumber = String(nextNum).padStart(4, '0')
+      const generatedNumber = `${settings.prefix}${formattedNumber}`
+      setInvoiceNumber(generatedNumber)
+    }
+  }, [userData])
 
   // Données mockées pour les garanties existantes
   const mockGuarantees = [
@@ -312,13 +341,23 @@ export default function NewInvoiceClientPage() {
 
   // Fonction pour ajouter un article
   const addItem = (type: ItemType) => {
+    const vatRate = 21; // Taux par défaut
+    let basePrice = 0;
+    let priceTTC = 0;
+    
+    if (type === "shipping") {
+      basePrice = 150;
+      priceTTC = basePrice * (1 + vatRate / 100);
+    }
+    
     const newItem: InvoiceItem = {
       id: `item-${Date.now()}`,
       type,
       description: type === "shipping" ? "Frais de livraison" : "",
       quantity: 1,
-      unitPrice: type === "shipping" ? 150 : 0,
-      vat: 21,
+      unitPrice: basePrice,
+      unitPriceTTC: priceTTC,
+      vat: vatRate,
       discount: 0,
     }
     setItems([...items, newItem])
@@ -331,14 +370,38 @@ export default function NewInvoiceClientPage() {
 
   // Fonction pour mettre à jour un article
   const updateItem = (id: string, updates: Partial<InvoiceItem>) => {
-    setItems(items.map((item) => (item.id === id ? { ...item, ...updates } : item)))
+    setItems(items.map((item) => {
+      if (item.id === id) {
+        const updatedItem = { ...item, ...updates };
+
+        if(updates.vat !== undefined) {
+          const vatRate = updatedItem.vat / 100;
+          updatedItem.unitPrice = Math.round((updatedItem.unitPriceTTC / (1 + vatRate)) * 100) / 100;
+        }
+        
+        // Si le prix HT ou la TVA a été modifié, recalculer le prix TTC
+        if (updates.unitPrice !== undefined ) {
+          const vatRate = updatedItem.vat / 100;
+          updatedItem.unitPriceTTC = Math.round((updatedItem.unitPrice * (1 + vatRate)) * 100) / 100;
+        }
+        // Si le prix TTC a été modifié, recalculer le prix HT
+        else if (updates.unitPriceTTC !== undefined) {
+          const vatRate = updatedItem.vat / 100;
+          updatedItem.unitPrice = Math.round((updatedItem.unitPriceTTC / (1 + vatRate)) * 100) / 100;
+        }
+        
+        return updatedItem;
+      }
+      return item;
+    }))
   }
 
   // Fonction pour calculer le total d'un article
   const calculateItemTotal = (item: InvoiceItem) => {
-    const subtotal = item.quantity * item.unitPrice
-    const discountAmount = subtotal * (item.discount / 100)
-    return subtotal - discountAmount
+    // Utiliser le prix HT pour les calculs
+    const subtotal = item.quantity * item.unitPrice;
+    const discountAmount = subtotal * (item.discount / 100);
+    return subtotal - discountAmount;
   }
 
   // Fonction pour calculer le sous-total de tous les articles
@@ -490,17 +553,39 @@ export default function NewInvoiceClientPage() {
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <div className="space-y-2">
                             <Label htmlFor="issueDate">Date d'émission</Label>
-                            <Input type="date" id="issueDate" className="w-full" />
+                            <Input 
+                              type="date" 
+                              id="issueDate" 
+                              className="w-full" 
+                              value={format(issueDate, "yyyy-MM-dd")}
+                              onChange={(e) => {
+                                const date = new Date(e.target.value);
+                                setIssueDate(date);
+                                // Mettre automatiquement à jour la date d'échéance si elle est modifiée
+                                setDueDate(addDays(date, 7));
+                              }}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="dueDate">Date d'échéance</Label>
-                            <Input type="date" id="dueDate" className="w-full" />
+                            <Input 
+                              type="date" 
+                              id="dueDate" 
+                              className="w-full" 
+                              value={format(dueDate, "yyyy-MM-dd")}
+                              onChange={(e) => setDueDate(new Date(e.target.value))}
+                            />
                           </div>
                         </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="invoiceNumber">Numéro de facture</Label>
-                          <Input id="invoiceNumber" placeholder="FAC-2023-001" />
+                          <Input 
+                            id="invoiceNumber" 
+                            placeholder="FAC-2023-001" 
+                            value={invoiceNumber}
+                            onChange={(e) => setInvoiceNumber(e.target.value)}
+                          />
                         </div>
                       </CardContent>
                     </Card>
@@ -575,7 +660,7 @@ export default function NewInvoiceClientPage() {
 
               <TabsContent value="articles" className="m-0">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                  <div className="space-y-6 lg:col-span-2">
+                  <div className="space-y-6 lg:col-span-3">
                     <Card>
                       <CardHeader className="pb-3">
                         <CardTitle>Articles</CardTitle>
@@ -588,18 +673,19 @@ export default function NewInvoiceClientPage() {
                               <tr className="text-left">
                                 <th className="px-4 py-3 font-medium">Type</th>
                                 <th className="px-4 py-3 font-medium">Description</th>
-                                <th className="px-4 py-3 font-medium text-center">Quantité</th>
-                                <th className="px-4 py-3 font-medium text-center">Prix unitaire</th>
+                                <th className="w-[100px] font-medium text-center">Quantité</th>
+                                <th className="px-4 py-3 font-medium text-center">Prix unitaire HT</th>
+                                <th className="px-4 py-3 font-medium text-center">Prix unitaire TTC</th>
                                 <th className="px-4 py-3 font-medium text-center">TVA (%)</th>
                                 <th className="px-4 py-3 font-medium text-center">Remise (%)</th>
-                                <th className="px-4 py-3 font-medium text-right">Total</th>
+                                <th className="px-4 py-3 font-medium text-right">Total HT</th>
                                 <th className="px-4 py-3 font-medium w-10"></th>
                               </tr>
                             </thead>
                             <tbody>
                               {items.length === 0 ? (
                                 <tr>
-                                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                                  <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                                     Aucun article ajouté. Commencez par ajouter un véhicule.
                                   </td>
                                 </tr>
@@ -630,10 +716,15 @@ export default function NewInvoiceClientPage() {
                                           onValueChange={(value) => {
                                             const vehicle = vehicles.find((v) => v.id === value)
                                             if (vehicle) {
+                                              const vatRate = item.vat;
+                                              const priceTTC = vehicle.priceSale || 0;
+                                              const priceHT = Math.round((priceTTC / (1 + vatRate / 100)) * 100) / 100;
+                                              
                                               updateItem(item.id, {
                                                 vehicleId: value,
                                                 description: `${vehicle.brand} ${vehicle.model} (${vehicle.year})`,
-                                                unitPrice: vehicle.priceSale || 0,
+                                                unitPrice: priceHT,
+                                                unitPriceTTC: priceTTC,
                                               })
                                             }
                                           }}
@@ -665,7 +756,7 @@ export default function NewInvoiceClientPage() {
                                         onChange={(e) =>
                                           updateItem(item.id, { quantity: Number.parseInt(e.target.value) || 1 })
                                         }
-                                        className="text-center"
+                                      
                                       />
                                     </td>
                                     <td className="px-4 py-3">
@@ -677,7 +768,19 @@ export default function NewInvoiceClientPage() {
                                         onChange={(e) =>
                                           updateItem(item.id, { unitPrice: Number.parseFloat(e.target.value) || 0 })
                                         }
-                                        className="text-center"
+                                      
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={item.unitPriceTTC}
+                                        onChange={(e) =>
+                                          updateItem(item.id, { unitPriceTTC: Number.parseFloat(e.target.value) || 0 })
+                                        }
+                                      
                                       />
                                     </td>
                                     <td className="px-4 py-3">
@@ -704,7 +807,7 @@ export default function NewInvoiceClientPage() {
                                         onChange={(e) =>
                                           updateItem(item.id, { discount: Number.parseInt(e.target.value) || 0 })
                                         }
-                                        className="text-center"
+                                      
                                       />
                                     </td>
                                     <td className="px-4 py-3 text-right">{formatCurrency(calculateItemTotal(item))}</td>
@@ -739,7 +842,7 @@ export default function NewInvoiceClientPage() {
                             </tbody>
                             <tfoot>
                               <tr>
-                                <td colSpan={8} className="px-4 py-3">
+                                <td colSpan={9} className="px-4 py-3">
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="outline" className="w-full">

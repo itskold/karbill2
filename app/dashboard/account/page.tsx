@@ -51,7 +51,7 @@ export default function AccountPage() {
     nextNumber: 1,
   })
 
-  const [currency, setCurrency] = useState("EUR")
+  const [currency, setCurrency] = useState<"EUR" | "USD" | "GBP" | "CHF">("EUR")
 
   // États pour le mot de passe
   const [passwordData, setPasswordData] = useState({
@@ -82,6 +82,11 @@ export default function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
+  const [savingCompanyInfo, setSavingCompanyInfo] = useState(false)
+  const [savingPersonalInfo, setSavingPersonalInfo] = useState(false)
+  const [savingAddressInfo, setSavingAddressInfo] = useState(false)
+  const [savingInvoiceSettings, setSavingInvoiceSettings] = useState(false)
+  const [savingCurrency, setSavingCurrency] = useState(false)
 
   // Initialiser les données utilisateur
   useEffect(() => {
@@ -194,7 +199,7 @@ export default function AccountPage() {
         await deleteObject(storageRef)
 
         // Mettre à jour le profil utilisateur
-        await updateUserProfile({ logo: null })
+        await updateUserProfile({ logo: undefined })
 
         // Mettre à jour l'UI
         setLogoPreview(null)
@@ -498,7 +503,7 @@ export default function AccountPage() {
     if (user) {
       try {
         setSignatureLoading(true)
-        await updateUserProfile({ signature: dataURL })
+        await updateUserProfile({ signature: dataURL || undefined })
 
         if (dataURL) {
           toast({
@@ -520,6 +525,139 @@ export default function AccountPage() {
         })
       } finally {
         setSignatureLoading(false)
+      }
+    }
+  }
+
+  // Enregistrer les informations de l'entreprise
+  const saveCompanyInfo = async () => {
+    if (user) {
+      try {
+        setSavingCompanyInfo(true)
+        await updateUserProfile({
+          ...companyInfo,
+        })
+
+        toast({
+          title: "Informations entreprise mises à jour",
+          description: "Les informations de votre entreprise ont été mises à jour avec succès.",
+        })
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour des informations entreprise:", error)
+        toast({
+          title: "Erreur",
+          description: "Une erreur est survenue lors de la mise à jour des informations entreprise.",
+          variant: "destructive",
+        })
+      } finally {
+        setSavingCompanyInfo(false)
+      }
+    }
+  }
+
+  // Enregistrer les informations personnelles
+  const savePersonalInfo = async () => {
+    if (user) {
+      try {
+        setSavingPersonalInfo(true)
+        await updateUserProfile({
+          ...personalInfo,
+        })
+
+        toast({
+          title: "Informations personnelles mises à jour",
+          description: "Vos informations personnelles ont été mises à jour avec succès.",
+        })
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour des informations personnelles:", error)
+        toast({
+          title: "Erreur",
+          description: "Une erreur est survenue lors de la mise à jour des informations personnelles.",
+          variant: "destructive",
+        })
+      } finally {
+        setSavingPersonalInfo(false)
+      }
+    }
+  }
+
+  // Enregistrer l'adresse
+  const saveAddressInfo = async () => {
+    if (user) {
+      try {
+        setSavingAddressInfo(true)
+        await updateUserProfile({
+          address: addressInfo,
+        })
+
+        toast({
+          title: "Adresse mise à jour",
+          description: "Votre adresse a été mise à jour avec succès.",
+        })
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de l'adresse:", error)
+        toast({
+          title: "Erreur",
+          description: "Une erreur est survenue lors de la mise à jour de l'adresse.",
+          variant: "destructive",
+        })
+      } finally {
+        setSavingAddressInfo(false)
+      }
+    }
+  }
+
+  // Enregistrer les paramètres de facturation
+  const saveInvoiceSettings = async () => {
+    if (user) {
+      try {
+        setSavingInvoiceSettings(true)
+        await userService.updateInvoiceSettings(user.uid, {
+          prefix: invoiceSettings.prefix,
+          startNumber: Number(invoiceSettings.startNumber),
+          nextNumber: Number(invoiceSettings.nextNumber),
+        })
+
+        toast({
+          title: "Paramètres de facturation mis à jour",
+          description: "Vos paramètres de facturation ont été mis à jour avec succès.",
+        })
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour des paramètres de facturation:", error)
+        toast({
+          title: "Erreur",
+          description: "Une erreur est survenue lors de la mise à jour des paramètres de facturation.",
+          variant: "destructive",
+        })
+      } finally {
+        setSavingInvoiceSettings(false)
+      }
+    }
+  }
+
+  // Enregistrer la devise
+  const saveCurrency = async () => {
+    if (user) {
+      try {
+        setSavingCurrency(true)
+        
+        await updateUserProfile({
+          currency,
+        })
+
+        toast({
+          title: "Devise mise à jour",
+          description: "Votre devise a été mise à jour avec succès.",
+        })
+      } catch (error) {
+        console.error("Erreur lors de la mise à jour de la devise:", error)
+        toast({
+          title: "Erreur",
+          description: "Une erreur est survenue lors de la mise à jour de la devise.",
+          variant: "destructive",
+        })
+      } finally {
+        setSavingCurrency(false)
       }
     }
   }
@@ -833,6 +971,18 @@ export default function AccountPage() {
                 />
               </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={saveCompanyInfo} disabled={savingCompanyInfo}>
+                {savingCompanyInfo ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  "Enregistrer les informations"
+                )}
+              </Button>
+            </CardFooter>
           </Card>
 
           <Card>
@@ -873,6 +1023,18 @@ export default function AccountPage() {
                 />
               </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={savePersonalInfo} disabled={savingPersonalInfo}>
+                {savingPersonalInfo ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  "Enregistrer les informations"
+                )}
+              </Button>
+            </CardFooter>
           </Card>
 
           <Card>
@@ -933,14 +1095,14 @@ export default function AccountPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button onClick={saveProfileChanges} disabled={savingProfile}>
-                {savingProfile ? (
+              <Button onClick={saveAddressInfo} disabled={savingAddressInfo}>
+                {savingAddressInfo ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Enregistrement...
                   </>
                 ) : (
-                  "Enregistrer les modifications"
+                  "Enregistrer l'adresse"
                 )}
               </Button>
             </CardFooter>
@@ -1045,6 +1207,18 @@ export default function AccountPage() {
                 </div>
               </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={saveInvoiceSettings} disabled={savingInvoiceSettings}>
+                {savingInvoiceSettings ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  "Enregistrer la numérotation"
+                )}
+              </Button>
+            </CardFooter>
           </Card>
 
           <Card>
@@ -1133,7 +1307,7 @@ export default function AccountPage() {
             <CardContent>
               <div className="space-y-2 max-w-md">
                 <Label htmlFor="currency">Devise</Label>
-                <Select value={currency} onValueChange={(value) => setCurrency(value)}>
+                <Select value={currency} onValueChange={(value) => setCurrency(value as "EUR" | "USD" | "GBP" | "CHF")}>
                   <SelectTrigger id="currency">
                     <SelectValue placeholder="Sélectionnez une devise" />
                   </SelectTrigger>
@@ -1146,6 +1320,18 @@ export default function AccountPage() {
                 </Select>
               </div>
             </CardContent>
+            <CardFooter>
+              <Button onClick={saveCurrency} disabled={savingCurrency}>
+                {savingCurrency ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Enregistrement...
+                  </>
+                ) : (
+                  "Enregistrer la devise"
+                )}
+              </Button>
+            </CardFooter>
           </Card>
 
           <Card>
