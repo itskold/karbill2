@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ArrowLeft, Save, Shield, CheckCircle2, Plus, Truck, Car, MoreHorizontal } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -62,6 +63,23 @@ export default function NewInvoiceClientPage() {
   // État pour les véhicules
   const [vehicles, setVehicles] = useState<Vehicule[]>([])
   const [isLoadingVehicles, setIsLoadingVehicles] = useState(true)
+  const [isSelectGuaranteeOpen, setIsSelectGuaranteeOpen] = useState(false)
+  const [selectedGuarantee, setSelectedGuarantee] = useState<Guarantee | null>(null)
+  const [items, setItems] = useState<InvoiceItem[]>([])
+  const [hasTradeIn, setHasTradeIn] = useState(false)
+  const [tradeInVehicle, setTradeInVehicle] = useState<TradeInVehicle>({
+    make: "",
+    model: "",
+    year: new Date().getFullYear(),
+    mileage: 0,
+    price: 0,
+    condition: "good",
+  })
+  const [activeTab, setActiveTab] = useState("general")
+
+  // Récupération des paramètres d'URL
+  const searchParams = useSearchParams()
+  const vehicleIdFromUrl = searchParams.get("vehicleId")
 
   // Utilisation du hook d'authentification
   const { user, userData } = useAuth()
@@ -85,19 +103,31 @@ export default function NewInvoiceClientPage() {
     loadVehicles()
   }, [user?.uid])
 
-  const [isSelectGuaranteeOpen, setIsSelectGuaranteeOpen] = useState(false)
-  const [selectedGuarantee, setSelectedGuarantee] = useState<Guarantee | null>(null)
-  const [items, setItems] = useState<InvoiceItem[]>([])
-  const [hasTradeIn, setHasTradeIn] = useState(false)
-  const [tradeInVehicle, setTradeInVehicle] = useState<TradeInVehicle>({
-    make: "",
-    model: "",
-    year: new Date().getFullYear(),
-    mileage: 0,
-    price: 0,
-    condition: "good",
-  })
-  const [activeTab, setActiveTab] = useState("general")
+  // Effet pour ajouter automatiquement le véhicule spécifié dans l'URL
+  useEffect(() => {
+    if (vehicleIdFromUrl && vehicles.length > 0 && !items.some(item => item.type === "vehicle")) {
+      const vehicleToAdd = vehicles.find(v => v.id === vehicleIdFromUrl)
+      
+      if (vehicleToAdd) {
+        // Ajouter ce véhicule comme article
+        const newItem: InvoiceItem = {
+          id: `item-${Date.now()}`,
+          type: "vehicle",
+          description: `${vehicleToAdd.brand} ${vehicleToAdd.model} (${vehicleToAdd.year})`,
+          quantity: 1,
+          unitPrice: vehicleToAdd.priceSale || 0,
+          vat: 21,
+          discount: 0,
+          vehicleId: vehicleToAdd.id
+        }
+        
+        setItems([...items, newItem])
+        
+        // Basculer vers l'onglet Articles
+        setActiveTab("articles")
+      }
+    }
+  }, [vehicleIdFromUrl, vehicles, items])
 
   // Données mockées pour les garanties existantes
   const mockGuarantees = [

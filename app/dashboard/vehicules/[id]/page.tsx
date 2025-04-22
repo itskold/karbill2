@@ -283,7 +283,7 @@ export default function VehicleDetailPage({
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <a href="#" onClick={(e) => e.preventDefault()}>
+                    <a href={`/dashboard/factures/add?vehicleId=${vehicle.id}`}>
                       <FileText className="mr-2 h-4 w-4" /> Générer une facture
                     </a>
                   </DropdownMenuItem>
