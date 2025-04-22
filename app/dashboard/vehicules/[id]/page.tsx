@@ -235,67 +235,27 @@ export default function VehicleDetailPage({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
+             
               <Button
                 variant="outline"
                 size="sm"
                 className="text-slate-700"
                 asChild
               >
-                <a href="#" onClick={(e) => e.preventDefault()}>
-                  <Printer className="mr-1 h-4 w-4" /> Imprimer
-                </a>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-slate-700"
-                asChild
-              >
-                <a href="#" onClick={(e) => e.preventDefault()}>
-                  <Share className="mr-1 h-4 w-4" /> Partager
-                </a>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-slate-700"
-                asChild
-              >
-                <a href={`/dashboard/vehicules/${unwrappedParams.id}/modifier`}>
+                <a href={`/dashboard/vehicules/${unwrappedParams.id}/edit`}>
                   <Edit className="mr-1 h-4 w-4" /> Modifier
                 </a>
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 text-slate-700"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                  <DropdownMenuItem asChild>
-                    <a href="#" onClick={(e) => e.preventDefault()}>
-                      <Download className="mr-2 h-4 w-4" /> Exporter en PDF
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-slate-700"
+                asChild
+              >
                     <a href={`/dashboard/factures/add?vehicleId=${vehicle.id}`}>
-                      <FileText className="mr-2 h-4 w-4" /> Générer une facture
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-600 focus:text-red-600"
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <FileText className="mr-2 h-4 w-4" /> Générer une facture
+                </a>
+              </Button>
             </div>
           </div>
         </div>
